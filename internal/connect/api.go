@@ -11,7 +11,7 @@ import (
 
 type ConnIntServer struct{}
 
-// DeliverMessage 投递消息
+// DeliverMessage 投递消息，从logic服务中接收到消息，然后投放到客户端
 func (s *ConnIntServer) DeliverMessage(ctx context.Context, req *pb.DeliverMessageReq) (*pb.Empty, error) {
 	resp := &pb.Empty{}
 

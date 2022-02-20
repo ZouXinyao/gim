@@ -20,8 +20,10 @@ import (
 )
 
 func main() {
+	// 初始化log
 	logger.Init()
 
+	// 初始化Redis，gim中都是初始化操作Redis的Client；IP和Password
 	db.InitRedis(config.Connect.RedisIP, config.Connect.RedisPassword)
 
 	// 初始化Rpc Client

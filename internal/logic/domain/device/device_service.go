@@ -14,7 +14,7 @@ type deviceService struct{}
 
 var DeviceService = new(deviceService)
 
-// Register 注册设备
+// Register 注册设备(无用)
 func (*deviceService) Register(ctx context.Context, device *Device) error {
 	err := DeviceDao.Save(device)
 	if err != nil {
@@ -24,14 +24,25 @@ func (*deviceService) Register(ctx context.Context, device *Device) error {
 	return nil
 }
 
+// Auth 权限验证(无用)
+func (*deviceService) Auth(ctx context.Context, userId, deviceId int64, token string) error {
+	_, err := rpc.BusinessIntClient.Auth(ctx, &pb.AuthReq{UserId: userId, DeviceId: deviceId, Token: token})
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 // SignIn 长连接登录
 func (*deviceService) SignIn(ctx context.Context, userId, deviceId int64, token string, connAddr string, clientAddr string) error {
+	// 鉴权
 	_, err := rpc.BusinessIntClient.Auth(ctx, &pb.AuthReq{UserId: userId, DeviceId: deviceId, Token: token})
 	if err != nil {
 		return err
 	}
 
 	// 标记用户在设备上登录
+	// 从数据库中获取设备信息device
 	device, err := DeviceRepo.Get(deviceId)
 	if err != nil {
 		return err
@@ -40,18 +51,11 @@ func (*deviceService) SignIn(ctx context.Context, userId, deviceId int64, token 
 		return nil
 	}
 
+	// 更新device
 	device.Online(userId, connAddr, clientAddr)
 
+	// 更新数据库中的device
 	err = DeviceRepo.Save(device)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-// Auth 权限验证
-func (*deviceService) Auth(ctx context.Context, userId, deviceId int64, token string) error {
-	_, err := rpc.BusinessIntClient.Auth(ctx, &pb.AuthReq{UserId: userId, DeviceId: deviceId, Token: token})
 	if err != nil {
 		return err
 	}
@@ -70,7 +74,7 @@ func (*deviceService) ListOnlineByUserId(ctx context.Context, userId int64) ([]*
 	return pbDevices, nil
 }
 
-// ServerStop connect服务停止，需要将连接在这台connect上的设备标记为下线
+// ServerStop connect服务停止，需要将连接在当前connect上的设备标记为下线
 func (*deviceService) ServerStop(ctx context.Context, connAddr string) error {
 	devices, err := DeviceRepo.ListOnlineByConnAddr(connAddr)
 	if err != nil {

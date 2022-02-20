@@ -49,6 +49,7 @@ func handleWithAuth(ctx context.Context, req interface{}, info *grpc.UnaryServer
 				return nil, err
 			}
 
+			// 将用户信息发给Business验证权限，含token
 			_, err = rpc.BusinessIntClient.Auth(ctx, &pb.AuthReq{
 				UserId:   userId,
 				DeviceId: deviceId,

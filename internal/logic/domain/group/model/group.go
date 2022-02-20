@@ -37,7 +37,7 @@ type GroupUser struct {
 	Id         int64     // 自增主键
 	GroupId    int64     // 群组id
 	UserId     int64     // 用户id
-	MemberType int       // 群组类型
+	MemberType int       // 成员类型，成员还是管理员
 	Remarks    string    // 备注
 	Extra      string    // 附加属性
 	Status     int       // 状态
@@ -85,7 +85,7 @@ func CreateGroup(userId int64, in *pb.CreateGroupReq) *Group {
 		UpdateType: UpdateTypeUpdate,
 	})
 
-	// 其让人添加为成员
+	// 其他人添加为成员
 	for i := range in.MemberIds {
 		group.Members = append(group.Members, GroupUser{
 			GroupId:    group.Id,
@@ -126,7 +126,7 @@ func (g *Group) PushUpdate(ctx context.Context, userId int64) error {
 	return nil
 }
 
-// SendMessage 消息发送至群组
+// SendMessage 消息发送至群组，遍历成员，向每个成员发送消息(写扩散)
 func (g *Group) SendMessage(ctx context.Context, sender *pb.Sender, req *pb.SendMessageReq) (int64, error) {
 	if sender.SenderType == pb.SenderType_ST_USER && !g.IsMember(sender.SenderId) {
 		logger.Sugar.Error(ctx, sender.SenderId, req.ReceiverId, "不在群组内")
@@ -136,6 +136,7 @@ func (g *Group) SendMessage(ctx context.Context, sender *pb.Sender, req *pb.Send
 	// 如果发送者是用户，将消息发送给发送者,获取用户seq
 	var userSeq int64
 	var err error
+	// 用户自己也需要收到信息，自己的操作要在自己界面中显示
 	if sender.SenderType == pb.SenderType_ST_USER {
 		userSeq, err = proxy.MessageProxy.SendToUser(ctx, sender, sender.SenderId, req)
 		if err != nil {
@@ -151,6 +152,7 @@ func (g *Group) SendMessage(ctx context.Context, sender *pb.Sender, req *pb.Send
 			if sender.SenderType == pb.SenderType_ST_USER && user.UserId == sender.SenderId {
 				continue
 			}
+			// 向群组其他成员发送信息，新建ctx的意义？
 			_, err := proxy.MessageProxy.SendToUser(grpclib.NewAndCopyRequestId(ctx), sender, user.UserId, req)
 			if err != nil {
 				return
@@ -170,7 +172,7 @@ func (g *Group) IsMember(userId int64) bool {
 	return false
 }
 
-// PushMessage 向群组推送消息
+// PushMessage 向群组推送消息，code为指令码，message是消息具体内容，isPersist是否持久化到DB
 func (g *Group) PushMessage(ctx context.Context, code pb.PushCode, message proto.Message, isPersist bool) error {
 	logger.Logger.Debug("push_to_group",
 		zap.Int64("request_id", grpclib.GetCtxRequestId(ctx)),
@@ -178,6 +180,7 @@ func (g *Group) PushMessage(ctx context.Context, code pb.PushCode, message proto
 		zap.Int32("code", int32(code)),
 		zap.Any("message", message))
 
+	// message编码
 	messageBuf, err := proto.Marshal(message)
 	if err != nil {
 		return gerrors.WrapError(err)
@@ -188,6 +191,7 @@ func (g *Group) PushMessage(ctx context.Context, code pb.PushCode, message proto
 		return gerrors.WrapError(err)
 	}
 
+	// PushMessage推送的都是添加用户、删除用户等系统信息SenderType_ST_SYSTEM，也是指令信息MessageType_MT_COMMAND
 	_, err = g.SendMessage(ctx,
 		&pb.Sender{
 			SenderType: pb.SenderType_ST_SYSTEM,

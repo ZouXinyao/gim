@@ -25,6 +25,7 @@ var MessageService = new(messageService)
 
 // Sync 消息同步
 func (*messageService) Sync(ctx context.Context, userId, seq int64) (*pb.SyncResp, error) {
+	// 根据类型和id查询大于序号大于seq的消息
 	messages, hasMore, err := MessageService.ListByUserIdAndSeq(ctx, userId, seq)
 	if err != nil {
 		return nil, err
@@ -38,7 +39,7 @@ func (*messageService) Sync(ctx context.Context, userId, seq int64) (*pb.SyncRes
 		return nil, err
 	}
 
-	// 如果字节数组大于一个包的长度，需要减少字节数组
+	// 如果字节数组大于一个包的长度，需要减少字节数组，拆包
 	for len(bytes) > MaxSyncBufLen {
 		length = length * 2 / 3
 		resp = &pb.SyncResp{Messages: pbMessages[0:length], HasMore: true}
@@ -54,6 +55,7 @@ func (*messageService) Sync(ctx context.Context, userId, seq int64) (*pb.SyncRes
 			userIds[resp.Messages[i].Sender.SenderId] = 0
 		}
 	}
+	// 添加resp消息的一些状态信息
 	usersResp, err := rpc.BusinessIntClient.GetUsers(ctx, &pb.GetUsersReq{UserIds: userIds})
 	if err != nil {
 		return nil, err
@@ -71,6 +73,7 @@ func (*messageService) Sync(ctx context.Context, userId, seq int64) (*pb.SyncRes
 		}
 	}
 
+	// 将同步的消息都返回
 	return resp, nil
 }
 
@@ -96,12 +99,15 @@ func (*messageService) SendToUser(ctx context.Context, sender *pb.Sender, toUser
 		err error
 	)
 
+	// 持久化message
 	if req.IsPersist {
+		// 获取接收端的下一个序列号
 		seq, err = SeqService.GetUserNext(ctx, toUserId)
 		if err != nil {
 			return 0, err
 		}
 
+		//  创建message
 		selfMessage := model.Message{
 			UserId:       toUserId,
 			RequestId:    grpclib.GetCtxRequestId(ctx),
@@ -116,6 +122,7 @@ func (*messageService) SendToUser(ctx context.Context, sender *pb.Sender, toUser
 			SendTime:     util.UnunixMilliTime(req.SendTime),
 			Status:       int32(pb.MessageStatus_MS_NORMAL),
 		}
+		// 消息存到DB中
 		err = repo.MessageRepo.Save(selfMessage)
 		if err != nil {
 			logger.Sugar.Error(err)
@@ -131,6 +138,7 @@ func (*messageService) SendToUser(ctx context.Context, sender *pb.Sender, toUser
 		}
 	}
 
+	// 创建PB消息
 	message := pb.Message{
 		Sender:         sender,
 		ReceiverType:   req.ReceiverType,
@@ -156,18 +164,20 @@ func (*messageService) SendToUser(ctx context.Context, sender *pb.Sender, toUser
 			continue
 		}
 
+		// 向设备发送消息
 		err = MessageService.SendToDevice(ctx, devices[i], &message)
 		if err != nil {
 			logger.Sugar.Error(err, zap.Any("SendToUser error", devices[i]), zap.Error(err))
 		}
 	}
-
+	// 返回消息的序列号
 	return seq, nil
 }
 
 // SendToDevice 将消息发送给设备
 func (*messageService) SendToDevice(ctx context.Context, device *pb.Device, message *pb.Message) error {
 	messageSend := pb.MessageSend{Message: message}
+	// rpc调用connect投递消息接口
 	_, err := rpc.ConnectIntClient.DeliverMessage(grpclib.ContextWithAddr(ctx, device.ConnAddr), &pb.DeliverMessageReq{
 		DeviceId:    device.DeviceId,
 		MessageSend: &messageSend,

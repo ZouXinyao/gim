@@ -72,6 +72,7 @@ func (c *Conn) Close() error {
 	}()
 
 	if c.DeviceId != 0 {
+		// 将当前用户下线信息发给Logic
 		_, _ = rpc.LogicIntClient.Offline(context.TODO(), &pb.OfflineReq{
 			UserId:     c.UserId,
 			DeviceId:   c.DeviceId,
@@ -79,6 +80,7 @@ func (c *Conn) Close() error {
 		})
 	}
 
+	// 关闭连接
 	if c.CoonType == CoonTypeTCP {
 		return c.TCP.Close()
 	} else if c.CoonType == ConnTypeWS {
@@ -96,7 +98,7 @@ func (c *Conn) GetAddr() string {
 	return ""
 }
 
-// HandleMessage 消息处理
+// HandleMessage 消息处理，TCP服务器收到消息后的处理，根据PB中记录的不同消息类型执行不同的操作。
 func (c *Conn) HandleMessage(bytes []byte) {
 	var input = new(pb.Input)
 	err := proto.Unmarshal(bytes, input)
@@ -128,7 +130,7 @@ func (c *Conn) HandleMessage(bytes []byte) {
 	}
 }
 
-// Send 下发消息
+// Send 下发消息，发消息给客户端
 func (c *Conn) Send(pt pb.PackageType, requestId int64, message proto.Message, err error) {
 	var output = pb.Output{
 		Type:      pt,
@@ -173,6 +175,7 @@ func (c *Conn) SignIn(input *pb.Input) {
 		return
 	}
 
+	// 登录信息要发给logic服务
 	_, err = rpc.LogicIntClient.ConnSignIn(grpclib.ContextWithRequestId(context.TODO(), input.RequestId), &pb.ConnSignInReq{
 		UserId:     signIn.UserId,
 		DeviceId:   signIn.DeviceId,
@@ -181,6 +184,7 @@ func (c *Conn) SignIn(input *pb.Input) {
 		ClientAddr: c.GetAddr(),
 	})
 
+	// 给客户端的反馈
 	c.Send(pb.PackageType_PT_SIGN_IN, input.RequestId, nil, err)
 	if err != nil {
 		return
@@ -188,6 +192,7 @@ func (c *Conn) SignIn(input *pb.Input) {
 
 	c.UserId = signIn.UserId
 	c.DeviceId = signIn.DeviceId
+	// 在全局的ConnsManager中保存连接实例
 	SetConn(signIn.DeviceId, c)
 }
 
@@ -200,6 +205,7 @@ func (c *Conn) Sync(input *pb.Input) {
 		return
 	}
 
+	// 发给logic服务，向其请求需要同步的数据。
 	resp, err := rpc.LogicIntClient.Sync(grpclib.ContextWithRequestId(context.TODO(), input.RequestId), &pb.SyncReq{
 		UserId:   c.UserId,
 		DeviceId: c.DeviceId,
@@ -210,11 +216,13 @@ func (c *Conn) Sync(input *pb.Input) {
 	if err == nil {
 		message = &pb.SyncOutput{Messages: resp.Messages, HasMore: resp.HasMore}
 	}
+	// 反馈给客户端消息内容
 	c.Send(pb.PackageType_PT_SYNC, input.RequestId, message, err)
 }
 
 // Heartbeat 心跳
 func (c *Conn) Heartbeat(input *pb.Input) {
+	// 反馈给客户端
 	c.Send(pb.PackageType_PT_HEARTBEAT, input.RequestId, nil, nil)
 
 	logger.Sugar.Infow("heartbeat", "device_id", c.DeviceId, "user_id", c.UserId)
@@ -229,6 +237,7 @@ func (c *Conn) MessageACK(input *pb.Input) {
 		return
 	}
 
+	// ACK信息发送给Logic
 	_, _ = rpc.LogicIntClient.MessageACK(grpclib.ContextWithRequestId(context.TODO(), input.RequestId), &pb.MessageACKReq{
 		UserId:      c.UserId,
 		DeviceId:    c.DeviceId,
@@ -246,8 +255,11 @@ func (c *Conn) SubscribedRoom(input *pb.Input) {
 		return
 	}
 
+	// 执行订阅房间的逻辑
 	SubscribedRoom(c, subscribeRoom.RoomId)
+	// 房间订阅成功发给客户端
 	c.Send(pb.PackageType_PT_SUBSCRIBE_ROOM, input.RequestId, nil, nil)
+	// 房间信息要发给Logic服务
 	_, err = rpc.LogicIntClient.SubscribeRoom(context.TODO(), &pb.SubscribeRoomReq{
 		UserId:   c.UserId,
 		DeviceId: c.DeviceId,

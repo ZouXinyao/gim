@@ -12,18 +12,18 @@ const (
 
 // Device 设备
 type Device struct {
-	Id            int64     // 设备id
-	UserId        int64     // 用户id
-	Type          int32     // 设备类型,1:Android；2：IOS；3：Windows; 4：MacOS；5：Web
-	Brand         string    // 手机厂商
-	Model         string    // 机型
-	SystemVersion string    // 系统版本
-	SDKVersion    string    // SDK版本
-	Status        int32     // 在线状态，0：离线；1：在线
-	ConnAddr      string    // 连接层服务层地址
-	ClientAddr    string    // 客户端地址
-	CreateTime    time.Time // 创建时间
-	UpdateTime    time.Time // 更新时间
+	Id            int64     // 设备id；(登录)
+	UserId        int64     // 用户id；(登录)
+	Type          int32     // 设备类型,1:Android；2：IOS；3：Windows; 4：MacOS；5：Web；(注册)
+	Brand         string    // 手机厂商；(注册)
+	Model         string    // 机型；(注册)
+	SystemVersion string    // 系统版本；(注册)
+	SDKVersion    string    // SDK版本；(注册)
+	Status        int32     // 在线状态，0：离线；1：在线；(登录1，下线0)
+	ConnAddr      string    // 连接层服务层地址；(登录)
+	ClientAddr    string    // 客户端地址；(登录)
+	CreateTime    time.Time // 创建时间；(注册、登录、下线都会更新)
+	UpdateTime    time.Time // 更新时间；(注册、登录、下线都会更新)(问题：两个时间一直是同步的？)
 }
 
 func (d *Device) ToProto() *pb.Device {

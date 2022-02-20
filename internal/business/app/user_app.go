@@ -12,11 +12,13 @@ type userApp struct{}
 var UserApp = new(userApp)
 
 func (*userApp) Get(ctx context.Context, userId int64) (*pb.User, error) {
+	// 根据userId获取用户信息
 	user, err := repo.UserRepo.Get(userId)
 	return user.ToProto(), err
 }
 
 func (*userApp) Update(ctx context.Context, userId int64, req *pb.UpdateUserReq) error {
+	// 根据传入的信息更新user实例，存入DB，产出cache
 	u, err := repo.UserRepo.Get(userId)
 	if err != nil {
 		return err
@@ -39,6 +41,7 @@ func (*userApp) Update(ctx context.Context, userId int64, req *pb.UpdateUserReq)
 }
 
 func (*userApp) GetByIds(ctx context.Context, userIds []int64) (map[int64]*pb.User, error) {
+	// 通过多个userIds获取多个user实例
 	users, err := repo.UserRepo.GetByIds(userIds)
 	if err != nil {
 		return nil, err
@@ -52,6 +55,7 @@ func (*userApp) GetByIds(ctx context.Context, userIds []int64) (map[int64]*pb.Us
 }
 
 func (*userApp) Search(ctx context.Context, key string) ([]*pb.User, error) {
+	// 模糊查询，key目前的实现是phone或者nickname，查询多个符合条件的User
 	users, err := repo.UserRepo.Search(key)
 	if err != nil {
 		return nil, err

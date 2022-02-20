@@ -38,17 +38,20 @@ func StartTCPServer() {
 
 type handler struct{}
 
+// OnConnect 连接处理函数，
 func (*handler) OnConnect(c *gn.Conn) {
 	// 初始化连接数据
 	conn := &Conn{
 		CoonType: CoonTypeTCP,
 		TCP:      c,
 	}
+	// 将conn挂到TCP服务器的连接实例上去。
 	c.SetData(conn)
 	logger.Logger.Debug("connect:", zap.Int32("fd", c.GetFd()), zap.String("addr", c.GetAddr()))
 }
 
 func (*handler) OnMessage(c *gn.Conn, bytes []byte) {
+	// 获取连接信息，然后处理收到的数据
 	conn := c.GetData().(*Conn)
 	conn.HandleMessage(bytes)
 }
@@ -58,8 +61,10 @@ func (*handler) OnClose(c *gn.Conn, err error) {
 	logger.Logger.Debug("close", zap.String("addr", c.GetAddr()), zap.Int64("user_id", conn.UserId),
 		zap.Int64("device_id", conn.DeviceId), zap.Error(err))
 
+	// 删除当前连接
 	DeleteConn(conn.DeviceId)
 
+	// 将关闭连接通知到Logic
 	if conn.UserId != 0 {
 		_, _ = rpc.LogicIntClient.Offline(context.TODO(), &pb.OfflineReq{
 			UserId:     conn.UserId,

@@ -37,6 +37,7 @@ func main() {
 	rpc.InitConnectIntClient(config.RPCAddr.ConnectRPCAddr)
 	rpc.InitBusinessIntClient(config.RPCAddr.BusinessRPCAddr)
 
+	// 这里有个鉴权的过程，应该是设备的鉴权，登录鉴权在SignIn处理，每收到一个请求都会验证设备是否符合要求
 	server := grpc.NewServer(grpc.UnaryInterceptor(interceptor.NewInterceptor("logic_interceptor", urlwhitelist.Logic)))
 
 	// 监听服务关闭信号，服务平滑重启
@@ -48,6 +49,7 @@ func main() {
 		server.GracefulStop()
 	}()
 
+	// server中注册内部Logic和外部Logic
 	pb.RegisterLogicIntServer(server, &api.LogicIntServer{})
 	pb.RegisterLogicExtServer(server, &api.LogicExtServer{})
 	listen, err := net.Listen("tcp", config.Logic.RPCListenAddr)

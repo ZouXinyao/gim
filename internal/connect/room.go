@@ -40,6 +40,7 @@ func SubscribedRoom(conn *Conn, roomId int64) {
 		} else {
 			room = value.(*Room)
 		}
+		// 将当前conn实例挂在room的conns上
 		room.Subscribe(conn)
 		return
 	}

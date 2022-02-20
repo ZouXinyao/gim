@@ -26,16 +26,19 @@ func (s *pushService) PushToUser(ctx context.Context, userId int64, code pb.Push
 		zap.Int32("code", int32(code)),
 		zap.Any("message", message))
 
+	// 编码message
 	messageBuf, err := proto.Marshal(message)
 	if err != nil {
 		return gerrors.WrapError(err)
 	}
 
+	// 加上状态码，编码command
 	commandBuf, err := proto.Marshal(&pb.Command{Code: int32(code), Data: messageBuf})
 	if err != nil {
 		return gerrors.WrapError(err)
 	}
 
+	// 发送控制信息
 	_, err = MessageService.SendToUser(ctx,
 		&pb.Sender{
 			SenderType: pb.SenderType_ST_SYSTEM,
@@ -78,6 +81,7 @@ func (s *pushService) PushAll(ctx context.Context, req *pb.PushAllReq) error {
 	if err != nil {
 		return gerrors.WrapError(err)
 	}
+	// 向消息队列中推送消息，这个topic的消息会被connect监控，有消息时候就会消费掉。
 	err = mq.Publish(mq.PushAllTopic, bytes)
 	if err != nil {
 		return err

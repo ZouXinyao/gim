@@ -10,6 +10,8 @@ type roomApp struct{}
 
 var RoomApp = new(roomApp)
 
+// 房间和群组的区别？
+
 // Push 推送房间消息
 func (s *roomApp) Push(ctx context.Context, sender *pb.Sender, req *pb.PushRoomReq) error {
 	return room.RoomService.Push(ctx, sender, req)

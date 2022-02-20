@@ -26,6 +26,7 @@ func (*deviceApp) Register(ctx context.Context, in *pb.RegisterDeviceReq) (int64
 		return 0, gerrors.ErrBadRequest
 	}
 
+	// 将设备信息存到DB中。
 	err := devicedomain.DeviceRepo.Save(&device)
 	if err != nil {
 		return 0, err
@@ -41,6 +42,7 @@ func (*deviceApp) SignIn(ctx context.Context, userId, deviceId int64, token stri
 
 // Offline 设备离线
 func (*deviceApp) Offline(ctx context.Context, deviceId int64, clientAddr string) error {
+	// 获取设备信息
 	device, err := devicedomain.DeviceRepo.Get(deviceId)
 	if err != nil {
 		return err
@@ -52,8 +54,10 @@ func (*deviceApp) Offline(ctx context.Context, deviceId int64, clientAddr string
 	if device.ClientAddr != clientAddr {
 		return nil
 	}
+	// 将设备的状态设置为offline
 	device.Status = devicedomain.DeviceOffLine
 
+	// 保存（更新）设备信息
 	err = devicedomain.DeviceRepo.Save(device)
 	if err != nil {
 		return err

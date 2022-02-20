@@ -11,6 +11,7 @@ var AuthApp = new(authApp)
 
 // SignIn 长连接登录
 func (*authApp) SignIn(ctx context.Context, phoneNumber, code string, deviceId int64) (bool, int64, string, error) {
+	// code是验证码
 	return service.AuthService.SignIn(ctx, phoneNumber, code, deviceId)
 }
 

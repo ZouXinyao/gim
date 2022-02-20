@@ -16,12 +16,15 @@ import (
 
 // StartSubscribe 启动MQ消息处理逻辑
 func StartSubscribe() {
+	// 接收Redis订阅的消息，这里的都是房间级的消息
 	pushRoomPriorityChannel := db.RedisCli.Subscribe(mq.PushRoomPriorityTopic).Channel()
 	pushRoomChannel := db.RedisCli.Subscribe(mq.PushRoomTopic).Channel()
+	// 逐个处理收到的消息
 	for i := 0; i < config.Connect.PushRoomSubscribeNum; i++ {
 		go handlePushRoomMsg(pushRoomPriorityChannel, pushRoomChannel)
 	}
 
+	// 这里是全局广播消息
 	pushAllChannel := db.RedisCli.Subscribe(mq.PushAllTopic).Channel()
 	for i := 0; i < config.Connect.PushAllSubscribeNum; i++ {
 		go handlePushAllMsg(pushAllChannel)
@@ -58,6 +61,7 @@ func handlePushRoom(bytes []byte) {
 		logger.Logger.Error("handlePushRoom error", zap.Error(err))
 		return
 	}
+	// 将消息广播到room中的每个conn
 	PushRoom(msg.RoomId, msg.MessageSend)
 }
 
@@ -68,5 +72,6 @@ func handlePushAll(bytes []byte) {
 		logger.Logger.Error("handlePushRoom error", zap.Error(err))
 		return
 	}
+	// 广播给所有的conn
 	PushAll(msg.MessageSend)
 }
